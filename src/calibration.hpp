@@ -8,6 +8,7 @@ enum calibrationState
     MID,
     RIGHT
 };
+
 // TODO saving and loading calibration
 class Calibration
 {
@@ -21,7 +22,7 @@ private:
 public:
     static Calibration *instance;
 
-    Calibration(int analogPin, int buttonPin, int outputPin, Vectoring &vec) : analogPinIn(analogPin), ledOut(outputPin), vec(vec)
+    Calibration(int analogPin, int buttonPin, int outputPin, Vectoring &vec) : analogPinIn(analogPin), ledOut(outputPin), vec(vec), button(buttonPin)
     {
         instance = this;
         pinMode(buttonPin, INPUT_PULLUP);

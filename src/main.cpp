@@ -10,25 +10,33 @@
 #define CLUTCH_PIN 3
 
 Vectoring a = Vectoring("steering-angles.csv");
-Calibration c = Calibration(STEERING_PIN, CALIBRATION_PIN, CALIBRATION_INDICATOR_PIN, a);
-Calibration *Calibration::instance = &c;
+Calibration steering = Calibration(STEERING_PIN, CALIBRATION_PIN, CALIBRATION_INDICATOR_PIN, a);
+Calibration *Calibration::instance = &steering;
 
 void setup()
 {
   Serial.begin(115200);
   Serial.println("Hello, World! from setup()");
-  attachInterrupt(digitalPinToInterrupt(c.get_buttonPin()), Calibration::calibrate, RISING); // TODO safety thing for accidental calibration
+  attachInterrupt(digitalPinToInterrupt(steering.get_buttonPin()), Calibration::calibrate, RISING); // TODO safety thing for accidental calibration
 }
 
 void loop()
 {
-  int throttle = analogRead(THROTTLE_PIN);
-  int steering = analogRead(STEERING_PIN);
+  if (digitalRead(CLUTCH_PIN) == HIGH)
+  {
+    a.update_throttle(0);
+    a.update_steer_travel(0);
+  }
+  else
+  {
+    int throttle = analogRead(THROTTLE_PIN);
+    int steering = analogRead(STEERING_PIN);
 
-  a.update_throttle(map(throttle, 0, 1023, 0, 100));
-  a.update_steer_travel(a.convert_to_degrees(steering));
-  a.calculate_torque();
-  Serial.print(a.print());
+    a.update_throttle(map(throttle, 0, 1023, 0, 100));
+    a.update_steer_travel(a.convert_to_degrees(steering));
+    a.calculate_torque();
+    Serial.print(a.print());
+  }
 
   delay(1000);
 }
