@@ -5,16 +5,17 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
-double WHEELDIAMETER = 235; // in milimeters
-double WHEELTRACK = 1000;   // in milimeters
-u_int8_t MAX_STEER_TRAVEL = 37;
+double WHEELDIAMETER = 235;     // in milimeters
+double WHEELTRACK = 1000;       // in milimeters
+u_int8_t MAX_STEER_TRAVEL = 37; // in degrees
 
 struct Wheel
 {
-    int left;
-    int right;
-    int middle;
+    int left = 0;
+    int right = 4096;
+    int middle = 2048;
 };
 
 class Vectoring
@@ -23,9 +24,12 @@ private:
     std::map<double, double> turning_circle_radius;
     std::string default_turning_radius_path = "steering-angles.csv";
 
+    std::vector<double> modifiers = {0, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5};
+    int modifier_index = 0;
+
     double throttle = 0;
     double steer_travel = 0;
-    double modifier = 1;
+    double modifier = 0.05;
 
     double regl_R = 0;
     double regl_L = 0;
@@ -104,15 +108,32 @@ public:
         this->wheel = wheel;
     }
 
-    double convert_to_degrees(const double value)
+    double convert_to_degrees(const int value)
     {
+        double oldMin = wheel.left;
+        double oldMax = wheel.right;
+        double newMin = -MAX_STEER_TRAVEL;
+        double newMax = MAX_STEER_TRAVEL;
+
+        // turning right
         if (value > wheel.middle)
         {
-            return (value - wheel.middle) / ((wheel.right - wheel.middle) * MAX_STEER_TRAVEL);
+            // mapping value to reange form middle to maxsteertravel
+            // from middle to max steer value
+            oldMin = wheel.middle;
+            newMin = 0;
+            return (((double)value - oldMin) / (oldMax - oldMin)) * (newMax - newMin) + newMin;
+        }
+        // turning left
+        else if (value < wheel.middle)
+        {
+            oldMax = wheel.middle;
+            newMax = 0;
+            return (((double)value - oldMin) / (oldMax - oldMin)) * (newMax - newMin) + newMin;
         }
         else
         {
-            return (value - wheel.middle) / ((wheel.middle - wheel.left) * MAX_STEER_TRAVEL * -1);
+            return 0;
         }
     }
 
@@ -139,6 +160,16 @@ public:
 
         this->steer_travel = steer_travel;
         return true;
+    }
+
+    void next_modifier()
+    {
+        if (modifier_index < modifiers.size() - 1)
+            modifier_index++;
+        else
+            modifier_index = 0;
+
+        this->modifier = modifiers[modifier_index];
     }
 
     // Updates additional modifier for torque vectoring
@@ -198,6 +229,10 @@ public:
         std::ostringstream oss;
         oss << "Gas: " << throttle << "% "
             << "   steer travel: " << steer_travel << "° "
+            << std::endl;
+
+        oss << "Modifier: " << modifier << " "
+            << "   Modifier index: " << modifier_index << " "
             << std::endl;
 
         oss << "R: " << regl_R << "% "
