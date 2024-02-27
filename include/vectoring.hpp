@@ -3,9 +3,9 @@
 #include <map>
 #include <cmath>
 #include <string>
-#include <fstream>
 #include <sstream>
 #include <vector>
+#include <SPIFFS.h>
 
 double WHEELDIAMETER = 235;     // in milimeters
 double WHEELTRACK = 1000;       // in milimeters
@@ -22,7 +22,7 @@ class Vectoring
 {
 private:
     std::map<double, double> turning_circle_radius;
-    std::string default_turning_radius_path = "steering-angles.csv";
+    std::string default_turning_radius_path = "/steering-angles.csv";
 
     std::vector<double> modifiers = {0, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5};
     int modifier_index = 0;
@@ -42,52 +42,78 @@ private:
     // (max 37 degrees) so far
     bool load_csv(std::string path)
     {
-        std::fstream file;
-        file.open(path, std::ios::in);
-
         printf("Loading csv file: %s\n", path.c_str());
 
-        if (!file.is_open())
+        if (!SPIFFS.begin(true))
+        {
+            Serial.println("An Error has occurred while mounting SPIFFS");
             return false;
+        }
+
+        File file = SPIFFS.open(path.c_str(), "r");
+        if (!file)
+        {
+            Serial.println("Failed to open file for reading");
+            return false;
+        }
+
+        printf("Reading csv file: %s\n", path.c_str());
 
         std::string line, word = "";
         double key, value = 0;
 
-        getline(file, line);
+        file.readStringUntil('\n'); // PI4O vOLE KURVA
 
-        while (getline(file, line))
+        while (file.available())
         {
-            // printf("Line: \"%d\"\n", line.c_str());
-            // if (line.empty())
-            // {
-            //     printf("Empty line\n");
-            //     continue;
-            // }
+            String rawLine = file.readStringUntil('\n');
+            line = rawLine.c_str();
+
+            // printf("Line: \"%s\"\n", line.c_str()); // TODO remove
+            //  auto l = line.find(",");
+            //  printf("aaaaa\n");
+            //  auto substr = line.substr(0, l);
+            //  printf("substr: %s\n", substr.c_str());
+            //  key = std::stod(substr);
+            //  printf("key: %f\n", key);
 
             key = std::stod(line.substr(0, line.find(",")));
-
             value = std::stod(line.substr(line.find(",") + 1, line.length()));
 
+            // printf("REEEEEEEEE: %s\n", rawLine.c_str());
+
             turning_circle_radius[key] = value;
-            // printf("%f %f\n", key, value);
+            printf("%f %f\n", key, value);
         }
+        file.close();
 
         return true;
     }
 
     double get_radius(const double steer_degrees)
     {
-        return this->turning_circle_radius[round(steer_degrees)];
+        Serial.print("Turning radius: ");
+        Serial.println(turning_circle_radius[round(steer_degrees)]); // TODO remove
+        return turning_circle_radius[round(steer_degrees)];
     }
 
     // calculate difference between left and right wheel
     double calculate_difference(const double radius)
     {
+        Serial.println("CALCULATE DIFFERENCE: ");
+        Serial.print("radius: ");
+        Serial.println(radius); // TODO remove
         double inner = radius / WHEELDIAMETER;
         double outer = (radius + WHEELTRACK) / WHEELDIAMETER;
         // std::cout << inner << "   " << outer << "       " << radius << std::endl;
+        Serial.print("inner: ");
+        Serial.println(inner); // TODO remove
+        Serial.print("outer: ");
+        Serial.println(outer); // TODO remove
         double x = (100 * inner) / outer;
         x = x / 100;
+        Serial.print("x: ");
+        Serial.println(x); // TODO remove
         return x;
     }
 
@@ -195,7 +221,7 @@ public:
         if (steer_travel < 1 && steer_travel > -1)
             return;
 
-        auto inner_steer_travel = steer_travel;
+        double inner_steer_travel = steer_travel;
         bool left = false;
 
         if (steer_travel < 0)
@@ -203,8 +229,11 @@ public:
             left = true;
             inner_steer_travel *= -1;
         }
-
-        auto difference = modifier * calculate_difference(this->get_radius(inner_steer_travel));
+        Serial.print("inner_steer_travel: ");
+        Serial.println(inner_steer_travel); // TODO remove
+        double difference = modifier * calculate_difference(this->get_radius(inner_steer_travel));
+        Serial.print("difference: ");
+        Serial.println(difference); // TODO remove
         if (left)
         {
             this->regl_L = throttle - difference;

@@ -11,25 +11,27 @@
 #define SAFETY_CALIBRATION_PIN D0
 #define CLUTCH_PIN CLUTCH
 
-Vectoring a = Vectoring("steering-angles.csv");
-Calibration c = Calibration(STEERING_PIN, CALIBRATION_PIN, CALIBRATION_INDICATOR_PIN, a);
-Calibration *Calibration::instance = &c;
-
 ezButton buttD0(D0);
+Vectoring *a;
+// Calibration c = Calibration(STEERING_PIN, CALIBRATION_PIN, CALIBRATION_INDICATOR_PIN, a);
+// Calibration *Calibration::instance = &c;
 
 void setup()
 {
+  Serial.begin(115200);
+
+  Serial.println("Hello, World! from setup()");
+  // attachInterrupt(digitalPinToInterrupt(c.get_buttonPin()), Calibration::calibrate, RISING); // TODO safety thing for accidental calibration
+
   pinMode(THROTTLE_PIN, INPUT);
   pinMode(STEERING_PIN, INPUT);
   pinMode(CLUTCH_PIN, INPUT);
-
-  Serial.begin(115200);
-  Serial.println("Hello, World! from setup()");
-  // attachInterrupt(digitalPinToInterrupt(c.get_buttonPin()), Calibration::calibrate, RISING); // TODO safety thing for accidental calibration
+  a = new Vectoring("");
 }
 
 void loop()
 {
+
   // setup ezButton
   buttD0.loop();
 
@@ -39,13 +41,13 @@ void loop()
   if (buttD0.isPressed())
   {
     Serial.println("Next modifier!");
-    a.next_modifier();
+    a->next_modifier();
   }
 
-  a.update_throttle(map(throttle, 0, 4098, 0, 100));
-  a.update_steer_travel(a.convert_to_degrees(steering));
-  a.calculate_torque();
-  Serial.print(a.print());
+  a->update_throttle(map(throttle, 0, 4098, 0, 100));
+  a->update_steer_travel(a->convert_to_degrees(steering));
+  a->calculate_torque();
+  Serial.print(a->print());
 
   delay(1000);
 }
