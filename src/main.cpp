@@ -40,14 +40,15 @@ void loop()
 
   if (buttD0.isPressed())
   {
-    Serial.println("Next modifier!");
+    printf("Next modifier!");
     a->next_modifier();
   }
 
   a->update_throttle(map(throttle, 0, 4098, 0, 100));
   a->update_steer_travel(a->convert_to_degrees(steering));
   a->calculate_torque();
-  Serial.print(a->print());
+  printf(a->print());
+  printf("\033c");
 
-  delay(1000);
+  // delay(1000);
 }

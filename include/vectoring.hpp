@@ -24,7 +24,7 @@ private:
     std::map<double, double> turning_circle_radius;
     std::string default_turning_radius_path = "/steering-angles.csv";
 
-    std::vector<double> modifiers = {0, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5};
+    std::vector<double> modifiers = {0, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5, 1.0, 1.1, 1.2, 1.3};
     int modifier_index = 0;
 
     double throttle = 0;
@@ -92,28 +92,19 @@ private:
 
     double get_radius(const double steer_degrees)
     {
-        Serial.print("Turning radius: ");
-        Serial.println(turning_circle_radius[round(steer_degrees)]); // TODO remove
         return turning_circle_radius[round(steer_degrees)];
     }
 
     // calculate difference between left and right wheel
     double calculate_difference(const double radius)
     {
-        Serial.println("CALCULATE DIFFERENCE: ");
-        Serial.print("radius: ");
-        Serial.println(radius); // TODO remove
+
         double inner = radius / WHEELDIAMETER;
         double outer = (radius + WHEELTRACK) / WHEELDIAMETER;
-        // std::cout << inner << "   " << outer << "       " << radius << std::endl;
-        Serial.print("inner: ");
-        Serial.println(inner); // TODO remove
-        Serial.print("outer: ");
-        Serial.println(outer); // TODO remove
+
         double x = (100 * inner) / outer;
         x = x / 100;
-        Serial.print("x: ");
-        Serial.println(x); // TODO remove
+
         return x;
     }
 
@@ -229,11 +220,10 @@ public:
             left = true;
             inner_steer_travel *= -1;
         }
-        Serial.print("inner_steer_travel: ");
-        Serial.println(inner_steer_travel); // TODO remove
-        double difference = modifier * calculate_difference(this->get_radius(inner_steer_travel));
-        Serial.print("difference: ");
-        Serial.println(difference); // TODO remove
+
+        double difference = modifier * 10 * calculate_difference(this->get_radius(inner_steer_travel));
+        printf("Difference: %f\n", calculate_difference(this->get_radius(inner_steer_travel)));
+
         if (left)
         {
             this->regl_L = throttle - difference;
@@ -250,6 +240,12 @@ public:
 
         if (this->regl_R >= 100)
             this->regl_R = 100;
+
+        if (this->regl_L <= 5 || this->regl_R <= 5)
+        {
+            this->regl_L = 0;
+            this->regl_R = 0;
+        }
     }
 
     // print function for debug
@@ -267,9 +263,7 @@ public:
         oss << "R: " << regl_R << "% "
             << " L: " << regl_L << "% "
             << std::endl;
-        oss << "_______________________________________________________________________" << std::endl
-            << std::endl
-            << std::endl;
+        oss << "_______________________________________________________________________" << std::endl;
 
         return oss.str().c_str();
     }
