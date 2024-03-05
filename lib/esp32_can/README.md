@@ -14,4 +14,5 @@ The needed can_common library is found here: https://github.com/collin80/can_com
 
 ## changes
 
-i personally made little workaround with debuggingMode to use it with platformio
+I personally made little workaround with debuggingMode to use it with platformio.
+Original git repository is here: https://github.com/collin80/esp32_can
