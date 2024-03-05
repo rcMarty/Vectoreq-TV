@@ -1,54 +1,68 @@
-#include <Arduino.h>
-#include <ezButton.h>
-#include "vectoring.hpp"
-#include "calibration.hpp"
-#include "include.h"
+//Demo of the second can interface Can1 which uses the MCP2517FD module
 
-#define THROTTLE_PIN TPS
-#define STEERING_PIN STEER
-#define CALIBRATION_PIN D3
-#define CALIBRATION_INDICATOR_PIN D1
-#define SAFETY_CALIBRATION_PIN D0
-#define CLUTCH_PIN CLUTCH
+#include "esp32_can.h"
 
-ezButton buttD0(D0);
-Vectoring *a;
-// Calibration c = Calibration(STEERING_PIN, CALIBRATION_PIN, CALIBRATION_INDICATOR_PIN, a);
-// Calibration *Calibration::instance = &c;
+void setup() {
+	Serial.begin(115200);
+	
+	Serial.println("Initializing ...");
+	
+	// Initialize MCP2517FD CAN controller at the specified speed
+	if(CAN1.begin(500000))
+	{
+		Serial.println("MCP2517FD Init OK ...");
+	} else {
+		Serial.println("MCP2517FD Init Failed ...");
+	}
 
-void setup()
-{
-  Serial.begin(115200);
+	CAN1.watchFor(); //allow anything through
 
-  Serial.println("Hello, World! from setup()");
-  // attachInterrupt(digitalPinToInterrupt(c.get_buttonPin()), Calibration::calibrate, RISING); // TODO safety thing for accidental calibration
-
-  pinMode(THROTTLE_PIN, INPUT);
-  pinMode(STEERING_PIN, INPUT);
-  pinMode(CLUTCH_PIN, INPUT);
-  a = new Vectoring("");
+	Serial.println("Ready ...!");
+  CAN_FRAME txFrame;
+  txFrame.rtr = 0;
+  txFrame.id = 0x123;
+  txFrame.extended = false;
+  txFrame.length = 4;
+  txFrame.data.byte[0] = 0x10;
+  txFrame.data.byte[1] = 0x1A;
+  txFrame.data.byte[2] = 0xFF;
+  txFrame.data.byte[3] = 0x5D;
+  CAN1.sendFrame(txFrame);
 }
 
-void loop()
-{
+byte i=0;
 
-  // setup ezButton
-  buttD0.loop();
+// CAN message frame
+CAN_FRAME message;
 
-  int throttle = analogRead(THROTTLE_PIN);
-  int steering = analogRead(STEERING_PIN);
+void loop() {
+	if (CAN1.read(message)) {
+		// Print message
+		Serial.print("ID: ");
+		Serial.println(message.id,HEX);
+		Serial.print("Extended: ");
+		if(message.extended) {
+			Serial.println("Yes");
+		} else {
+			Serial.println("No");
+		}
+		Serial.print("Length: ");
+		Serial.println(message.length,DEC);
+		for(i = 0;i < message.length; i++) {
+			Serial.print(message.data.byte[i],HEX);
+			Serial.print(" ");
+		}
+		Serial.println();
+		Serial.println();
 
-  if (buttD0.isPressed())
-  {
-    printf("Next modifier!");
-    a->next_modifier();
-  }
-
-  a->update_throttle(map(throttle, 0, 4098, 0, 100));
-  a->update_steer_travel(a->convert_to_degrees(steering));
-  a->calculate_torque();
-  printf(a->print());
-  printf("\033c");
-
-  // delay(1000);
+		// Send out a return message for each one received
+		// Simply increment message id and data bytes to show proper transmission
+		// Note: this will double the traffic on the network (provided it passes the filter above)
+		message.id++;
+		for(i = 0;i < message.length; i++) {
+			message.data.byte[i]++;
+		}
+		CAN1.sendFrame(message);
+	}
 }
+
