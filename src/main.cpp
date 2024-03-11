@@ -1,77 +1,67 @@
-// Demo of the second can interface Can1 which uses the MCP2517FD module
+// Copyright (c) Sandeep Mistry. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#include "esp32_can.h"
+#include <CAN.h>
+#include "pins.h"
 
 void setup()
 {
     Serial.begin(115200);
 
-    Serial.println("Initializing ...");
+    Serial.println("CAN Receiver");
 
-    // Initialize MCP2517FD CAN controller at the specified speed
-    if (CAN1.begin(500000))
+    CAN.setPins(CAN_RX, CAN_TX);
+
+    // start the CAN bus at 500 kbps
+    if (!CAN.begin(500E3))
     {
-        Serial.println("MCP2517FD Init OK ...");
+        Serial.println("Starting CAN failed!");
     }
-    else
-    {
-        Serial.println("MCP2517FD Init Failed ...");
-    }
-
-    CAN1.watchFor(); // allow anything through
-
-    Serial.println("Ready ...!");
-    CAN_FRAME txFrame;
-    txFrame.rtr = 0;
-    txFrame.id = 0x123;
-    txFrame.extended = false;
-    txFrame.length = 4;
-    txFrame.data.byte[0] = 0x10;
-    txFrame.data.byte[1] = 0x1A;
-    txFrame.data.byte[2] = 0xFF;
-    txFrame.data.byte[3] = 0x5D;
-    CAN1.sendFrame(txFrame);
 }
-
-byte i = 0;
-
-// CAN message frame
-CAN_FRAME message;
 
 void loop()
 {
-    if (CAN1.read(message))
+
+    // try to parse packet
+    int packetSize = CAN.parsePacket();
+
+    if (packetSize && CAN.packetId() != -1)
     {
-        // Print message
-        Serial.print("ID: ");
-        Serial.println(message.id, HEX);
-        Serial.print("Extended: ");
-        if (message.extended)
+        // received a packet
+        Serial.print("Received ");
+
+        if (CAN.packetExtended())
         {
-            Serial.println("Yes");
+            Serial.print("extended ");
+        }
+
+        if (CAN.packetRtr())
+        {
+            // Remote transmission request, packet contains no data
+            Serial.print("RTR ");
+        }
+
+        Serial.print("packet with id 0x");
+        Serial.print(CAN.packetId(), HEX);
+
+        if (CAN.packetRtr())
+        {
+            Serial.print(" and requested length ");
+            Serial.println(CAN.packetDlc());
         }
         else
         {
-            Serial.println("No");
-        }
-        Serial.print("Length: ");
-        Serial.println(message.length, DEC);
-        for (i = 0; i < message.length; i++)
-        {
-            Serial.print(message.data.byte[i], HEX);
-            Serial.print(" ");
-        }
-        Serial.println();
-        Serial.println();
+            Serial.print(" and length ");
+            Serial.println(packetSize);
 
-        // Send out a return message for each one received
-        // Simply increment message id and data bytes to show proper transmission
-        // Note: this will double the traffic on the network (provided it passes the filter above)
-        message.id++;
-        for (i = 0; i < message.length; i++)
-        {
-            message.data.byte[i]++;
+            // only print packet data for non-RTR packets
+            while (CAN.available())
+            {
+                Serial.print((char)CAN.read());
+            }
+            Serial.println();
         }
-        CAN1.sendFrame(message);
+
+        Serial.println();
     }
 }
