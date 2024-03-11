@@ -222,7 +222,7 @@ public:
         }
 
         double difference = modifier * 10 * calculate_difference(this->get_radius(inner_steer_travel));
-        printf("Difference: %f\n", calculate_difference(this->get_radius(inner_steer_travel)));
+        // printf("Difference: %f\n", calculate_difference(this->get_radius(inner_steer_travel)));
 
         if (left)
         {
@@ -246,6 +246,8 @@ public:
             this->regl_L = 0;
             this->regl_R = 0;
         }
+
+        // printf("");
     }
 
     // print function for debug
@@ -266,5 +268,15 @@ public:
         oss << "_______________________________________________________________________" << std::endl;
 
         return oss.str().c_str();
+    }
+
+    double get_R()
+    {
+        return regl_R;
+    }
+
+    double get_L()
+    {
+        return regl_L;
     }
 };

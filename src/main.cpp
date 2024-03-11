@@ -1,67 +1,75 @@
-// Copyright (c) Sandeep Mistry. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-
-#include <CAN.h>
+#include <Arduino.h>
+#include <ezButton.h>
+#include "vectoring.hpp"
+#include "calibration.hpp"
 #include "pins.h"
+#include <CAN.h>
+
+#define THROTTLE_PIN TPS
+#define STEERING_PIN STEER
+#define CALIBRATION_PIN D3
+#define CALIBRATION_INDICATOR_PIN D1
+#define SAFETY_CALIBRATION_PIN D0
+#define CLUTCH_PIN CLUTCH
+
+ezButton buttD0(D0);
+Vectoring *a;
+// Calibration c = Calibration(STEERING_PIN, CALIBRATION_PIN, CALIBRATION_INDICATOR_PIN, a);
+// Calibration *Calibration::instance = &c;
 
 void setup()
 {
-    Serial.begin(115200);
+  Serial.begin(115200);
 
-    Serial.println("CAN Receiver");
+  Serial.println("Hello, World! from setup()");
+  // attachInterrupt(digitalPinToInterrupt(c.get_buttonPin()), Calibration::calibrate, RISING); // TODO safety thing for accidental calibration
+  CAN.setPins(CAN_RX, CAN_TX);
 
-    CAN.setPins(CAN_RX, CAN_TX);
+  // start the CAN bus at 500 kbps
+  if (!CAN.begin(500E3))
+  {
+    Serial.println("Starting CAN failed!");
+    while (1)
+      ;
+  }
 
-    // start the CAN bus at 500 kbps
-    if (!CAN.begin(500E3))
-    {
-        Serial.println("Starting CAN failed!");
-    }
+  // pinMode(THROTTLE_PIN, INPUT);
+  // pinMode(STEERING_PIN, INPUT);
+  // pinMode(CLUTCH_PIN, INPUT);
+  a = new Vectoring("");
 }
 
 void loop()
 {
 
-    // try to parse packet
-    int packetSize = CAN.parsePacket();
+  // setup ezButton
+  buttD0.loop();
 
-    if (packetSize && CAN.packetId() != -1)
-    {
-        // received a packet
-        Serial.print("Received ");
+  int throttle = analogRead(THROTTLE_PIN);
+  int steering = analogRead(STEERING_PIN);
 
-        if (CAN.packetExtended())
-        {
-            Serial.print("extended ");
-        }
+  if (buttD0.isPressed())
+  {
+    // printf("Next modifier!");
+    a->next_modifier();
+  }
 
-        if (CAN.packetRtr())
-        {
-            // Remote transmission request, packet contains no data
-            Serial.print("RTR ");
-        }
+  a->update_throttle(map(throttle, 0, 4098, 0, 100));
+  a->update_steer_travel(a->convert_to_degrees(steering));
+  a->calculate_torque();
+  Serial.print(a->print());
 
-        Serial.print("packet with id 0x");
-        Serial.print(CAN.packetId(), HEX);
+  CAN.beginPacket(0x12);
+  CAN.write('L');
+  CAN.write(':');
+  CAN.write((uint8_t)a->get_L());
+  CAN.endPacket();
 
-        if (CAN.packetRtr())
-        {
-            Serial.print(" and requested length ");
-            Serial.println(CAN.packetDlc());
-        }
-        else
-        {
-            Serial.print(" and length ");
-            Serial.println(packetSize);
+  CAN.beginPacket(0x13);
+  CAN.write('R');
+  CAN.write(':');
+  CAN.write((uint8_t)a->get_R());
+  CAN.endPacket();
 
-            // only print packet data for non-RTR packets
-            while (CAN.available())
-            {
-                Serial.print((char)CAN.read());
-            }
-            Serial.println();
-        }
-
-        Serial.println();
-    }
+  delay(1000);
 }
